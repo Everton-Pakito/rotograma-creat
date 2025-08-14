@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <meta name="theme-color" content="#000000">
-<title>Rotograma – Câmera Full + Mapa + GPX/KMZ</title>
+<title>Rotograma – Câmera + Mapa + GPX/KMZ</title>
 <link rel="manifest" href="manifest.webmanifest">
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
@@ -15,56 +15,25 @@
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
 <style>
-:root {
-  color-scheme: dark;
-  --bg:#000;
-  --panel:rgba(20,20,20,.6);
-  --text:#fff;
-  --accent:#22c55e;
-}
-html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui, sans-serif; }
+:root { --bg:#000; --panel:rgba(20,20,20,.6); --text:#fff; --accent:#22c55e; }
+html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,sans-serif; }
 .shell { position:fixed; inset:0; overflow:hidden; background:#000; }
 video#camVideo { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
 
-/* UI overlay */
-.ui { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:space-between; pointer-events:none; }
-.topbar, .bottombar { padding:12px; display:flex; justify-content:space-between; align-items:center; pointer-events:auto; }
-.topbar { background:linear-gradient(180deg, rgba(0,0,0,.5), transparent); }
-.bottombar { background:linear-gradient(0deg, rgba(0,0,0,.5), transparent); flex-direction:column; gap:12px; }
+#logoWatermark { position:absolute; top:12px; left:50%; transform:translateX(-50%); width:120px; filter:drop-shadow(0 0 6px rgba(0,0,0,0.6)); opacity:0.85; }
 
-/* Buttons circular */
-.btns { display:flex; gap:16px; }
-button {
-  background:var(--panel); color:var(--text);
-  border:none; border-radius:50%;
-  width:64px; height:64px;
-  display:flex; align-items:center; justify-content:center;
-  font-size:12px; font-weight:700; text-align:center;
-  cursor:pointer; backdrop-filter:blur(6px);
-}
-button:disabled { opacity:.5; cursor:not-allowed; }
-button.primary { border:2px solid var(--accent); }
-
-/* Mapa inset */
-#miniMapWrap {
-  position:absolute; top:80px; left:12px; width:140px; height:140px;
-  border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,.4);
-  border:1px solid rgba(255,255,255,.15);
-}
+#miniMapWrap { position:absolute; top:80px; left:12px; width:140px; height:140px; border-radius:12px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,.4); border:1px solid rgba(255,255,255,.15); }
 #miniMap { width:100%; height:100%; }
 
-/* Logo watermark on live view */
-#logoWatermark {
-  filter: drop-shadow(0 0 6px rgba(0,0,0,0.6));
-  opacity:0.85;
-  position:absolute; top:12px; left:50%; transform:translateX(-50%);
-  width:120px; opacity:0.9;
-}
+.ui { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:space-between; pointer-events:none; }
+.topbar, .bottombar { padding:12px; display:flex; flex-wrap:wrap; gap:8px; pointer-events:auto; background:linear-gradient(180deg, rgba(0,0,0,.5), transparent); }
+.bottombar { background:linear-gradient(0deg, rgba(0,0,0,.5), transparent); justify-content:center; }
 
-/* Status text */
-.status { font-size:12px; color:#ccc; }
+button { background:var(--panel); color:var(--text); border:none; border-radius:8px; padding:10px 14px; font-size:14px; font-weight:600; cursor:pointer; backdrop-filter:blur(6px); }
+button.primary { border:2px solid var(--accent); }
+button:disabled { opacity:.5; cursor:not-allowed; }
 
-/* Date/time watermark in capture will be drawn in canvas */
+.status { font-size:12px; color:#ccc; width:100%; text-align:center; margin-top:4px; }
 </style>
 </head>
 <body>
@@ -79,26 +48,20 @@ button.primary { border:2px solid var(--accent); }
       <button id="toggleMapBtn">Mapa</button>
     </div>
     <div class="bottombar">
-      <div class="btns">
-        <button id="startRecBtn" class="primary">REC</button>
-        <button id="stopRecBtn" disabled>STOP</button>
-        <button id="captureBtn">Foto</button>
-      </div>
-      <div class="btns">
-        <button id="exportGpxBtn">GPX</button>
-        <button id="exportKmzBtn">KMZ</button>
-        <button id="exportPdfBtn">PDF</button>
-      </div>
-      <div class="status" id="recStatus">Vídeo: parado • Trilhas: 0 pts</div>
+      <button id="startRecBtn" class="primary">Iniciar Gravação</button>
+      <button id="stopRecBtn" disabled>Parar Gravação</button>
+      <button id="captureBtn">Foto</button>
+      <button id="exportGpxBtn">GPX</button>
+      <button id="exportKmzBtn">KMZ</button>
+      <button id="exportPdfBtn">PDF</button>
     </div>
+    <div class="status" id="recStatus">Vídeo: parado • Trilhas: 0 pts</div>
   </div>
 </div>
 
 <script src="app.js"></script>
 <script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js');
-}
+if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
 </script>
 </body>
 </html>
