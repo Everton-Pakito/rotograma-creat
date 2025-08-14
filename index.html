@@ -3,138 +3,131 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<meta name="theme-color" content="#ffffff">
-<title>Rotograma – Captura de Curvas e Acessos (PWA)</title>
+<meta name="theme-color" content="#000000">
+<title>Rotograma – Câmera Full + Mapa + GPX/KMZ</title>
 <link rel="manifest" href="manifest.webmanifest">
+
+<!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+<!-- Utilitários -->
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
 <style>
-:root { color-scheme: light; }
-html, body { height: 100%; margin: 0; background: #f6f7fb !important; color: #0f172a !important; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; }
-:root { --bg:#f6f7fb; --panel:#ffffff; --text:#0f172a; --muted:#475569; --border:#e5e7eb; --accent:#16a34a; --warn:#f59e0b; --danger:#ef4444; }
+:root {
+  color-scheme: dark;
+  --bg:#000;
+  --panel:rgba(20,20,20,.7);
+  --text:#fff;
+  --accent:#22c55e;
+  --muted:#94a3b8;
+}
 * { box-sizing: border-box; }
+html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; }
 
-header { position: sticky; top:0; z-index:10; backdrop-filter: blur(8px); background:#ffffffcc; border-bottom:1px solid var(--border); }
-.wrap { max-width: 1100px; margin:0 auto; padding:16px; }
-h1 { margin:0; font-size:20px; letter-spacing:.2px; font-weight:800; color:var(--text); }
-main { padding-bottom:72px; }
+/* Fullscreen camera layout */
+.shell {
+  position: fixed; inset: 0; width: 100vw; height: 100vh; overflow: hidden;
+  background: #000;
+}
+video#camVideo {
+  position:absolute; inset:0;
+  width:100%; height:100%; object-fit:cover;
+}
 
-.video-shell { position: relative; width: 100%; height: calc(100vw * 9 / 16); max-height: 360px; background: #000; overflow: hidden; border-radius: 12px; }
-video#camVideo { width: 100%; height: 100%; object-fit: cover; transform: rotate(0deg); }
+/* Overlay controls */
+.ui {
+  position:absolute; inset:0; pointer-events:none;
+  display:flex; flex-direction:column; justify-content:space-between;
+}
+.topbar, .bottombar {
+  display:flex; gap:8px; align-items:center; justify-content:space-between;
+  padding:12px; pointer-events:auto;
+}
+.topbar { background: linear-gradient(180deg, rgba(0,0,0,.6), rgba(0,0,0,0)); }
+.bottombar { background: linear-gradient(0deg, rgba(0,0,0,.6), rgba(0,0,0,0)); }
 
-.controls { display:flex; gap:8px; flex-wrap: wrap; align-items:center; position: relative; z-index:50; background: rgba(255,255,255,0.9); padding:8px; border-radius:8px; margin-top:8px; }
-button { padding:8px 12px; border:none; border-radius:6px; cursor:pointer; font-weight:600; }
-button.primary { background:#16a34a; color:#fff; }
-button.warn { background:#f59e0b; color:#fff; }
+.btns { display:flex; gap:8px; flex-wrap:wrap; }
 
-.events { margin-top:12px; display:flex; flex-wrap: wrap; gap:6px; }
-.events .event { display:flex; flex-direction:column; align-items:center; width:120px; }
-.events .event img.thumb { width:100%; border-radius:6px; }
-.events .event .meta { font-size:11px; text-align:center; margin-top:4px; }
+button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 700; letter-spacing:.2px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+button.primary { border-color: var(--accent); }
+button:disabled { opacity:.5; cursor:not-allowed; }
 
-#map { width: 100%; height: 300px; border-radius: 12px; margin-bottom:8px; }
+/* Inset mini map over video */
+#miniMapWrap {
+  position:absolute; bottom:90px; right:12px; width: 180px; height: 180px;
+  border-radius: 12px; overflow:hidden; box-shadow: 0 10px 30px rgba(0,0,0,.45);
+  border:1px solid rgba(255,255,255,.12);
+}
+#miniMap { width: 100%; height: 100%; }
 
-.footer { position:fixed; left:0; right:0; bottom:0; background:#ffffff !important; border-top:1px solid var(--border); text-align:center; color:#0f172a !important; padding:14px 12px calc(14px + env(safe-area-inset-bottom)); font-size:13px; z-index:40; }
-.footer b { font-weight:800; }
+/* Event thumbs tray (optional) */
+#tray {
+  position:absolute; left:12px; bottom:90px; display:flex; gap:8px; flex-wrap:wrap; max-width:60vw;
+}
+.thumb {
+  width: 96px; height: 54px; object-fit: cover; border-radius: 8px; border:1px solid rgba(255,255,255,.15);
+}
+
+/* Watermark & status */
+.status { font-size:12px; color:var(--muted); padding-left:8px; }
+.brand { font-weight:800; }
 </style>
 </head>
 <body>
-<header><div class="wrap"><h1>Rotograma – Captura de Curvas, Acessos & Gravação 720p (PWA)</h1></div></header>
-<main class="wrap">
-  <div id="map"></div>
-  <div class="video-shell"><video id="camVideo" autoplay muted playsinline></video></div>
-  <div class="controls">
-    <button class="primary" id="startRecBtn">Iniciar Gravação</button>
-    <button class="warn" id="stopRecBtn" disabled>Parar Gravação</button>
-    <button class="primary" id="captureBtn">Capturar Curva/Acesso</button>
-    <button class="primary" id="exportPdfBtn">Gerar PDF Rotograma</button>
+<div class="shell">
+  <video id="camVideo" autoplay muted playsinline></video>
+  <div class="ui">
+    <div class="topbar">
+      <div>
+        <div class="brand">Rotograma</div>
+        <div class="status" id="gpsStatus">GPS: aguardando…</div>
+      </div>
+      <div class="btns">
+        <button id="toggleMapBtn">Mostrar/Ocultar Mapa</button>
+        <button id="captureBtn" class="primary">Capturar Foto (com mapa)</button>
+      </div>
+    </div>
+
+    <div id="tray"></div>
+
+    <div class="bottombar">
+      <div class="btns">
+        <button id="startRecBtn" class="primary">Iniciar Gravação</button>
+        <button id="stopRecBtn" disabled>Parar Gravação</button>
+        <button id="exportGpxBtn">Exportar GPX</button>
+        <button id="exportKmzBtn">Exportar KMZ</button>
+        <button id="exportPdfBtn">Gerar PDF</button>
+      </div>
+      <div class="status" id="recStatus">Vídeo: parado • Trilhas: 0 pts</div>
+    </div>
   </div>
-  <div class="events" id="eventsContainer"></div>
-</main>
-<div class="footer">Rodapé: Feito com ❤️ por <b>Everton Tezzon Ferreira</b></div>
+
+  <div id="miniMapWrap">
+    <div id="miniMap"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
 <script>
-let videoStream, mediaRecorder, recordedChunks = [], events = [];
-
-async function initCamera() {
-  try {
-    videoStream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-        facingMode: { exact: "environment" } // força câmera traseira
-      },
-      audio: true
-    });
-  } catch(e) {
-    // fallback se "environment" não disponível
-    videoStream = await navigator.mediaDevices.getUserMedia({ video: { width:1280, height:720 }, audio: true });
-  }
-  const videoEl = document.getElementById('camVideo');
-  videoEl.srcObject = videoStream;
-}
-
-function startRecording() {
-  recordedChunks = [];
-  mediaRecorder = new MediaRecorder(videoStream, { mimeType: 'video/webm; codecs=vp9' });
-  mediaRecorder.ondataavailable = e => { if(e.data.size>0) recordedChunks.push(e.data); };
-  mediaRecorder.start();
-  document.getElementById('startRecBtn').disabled = true;
-  document.getElementById('stopRecBtn').disabled = false;
-}
-
-function stopRecording() {
-  mediaRecorder.stop();
-  document.getElementById('startRecBtn').disabled = false;
-  document.getElementById('stopRecBtn').disabled = true;
-  mediaRecorder.onstop = () => {
-    const blob = new Blob(recordedChunks, { type:'video/webm' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'rotograma.webm';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-}
-
-function captureEvent() {
-  const video = document.getElementById('camVideo');
-  const canvas = document.createElement('canvas');
-  canvas.width = 1280;
-  canvas.height = 720;
-  canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
-  const imgData = canvas.toDataURL('image/jpeg');
-  const event = { label:'Curva/Acesso', image: imgData, timestamp: new Date().toLocaleTimeString() };
-  events.push(event);
-
-  const div = document.createElement('div');
-  div.className='event';
-  div.innerHTML=`<img class='thumb' src='${imgData}' /><div class='meta'><b>${event.label}</b><br>${event.timestamp}</div>`;
-  document.getElementById('eventsContainer').appendChild(div);
-}
-
-function exportPDF() {
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation:'landscape' });
-  events.forEach((ev,i)=>{
-    pdf.text(`Evento: ${ev.label}`,10,10 + i*70);
-    pdf.addImage(ev.image,'JPEG',10,20 + i*70,120,67);
+// PWA - SW
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js');
   });
-  pdf.save('rotograma.pdf');
 }
-
-document.getElementById('startRecBtn').onclick = startRecording;
-document.getElementById('stopRecBtn').onclick = stopRecording;
-document.getElementById('captureBtn').onclick = captureEvent;
-document.getElementById('exportPdfBtn').onclick = exportPDF;
-
-initCamera();
-
-// Mapa Leaflet
-const map = L.map('map').setView([-23.55052, -46.633308], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19 }).addTo(map);
 </script>
 </body>
 </html>
