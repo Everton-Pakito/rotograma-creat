@@ -1,34 +1,50 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <meta name="theme-color" content="#ffffff" />
-  <title>Rotograma</title>
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-  <style>
-    /* Força Modo Claro e Rodapé Fixo */
-    :root { color-scheme: light; }
-    html, body { height: 100%; margin: 0; background: #f6f7fb !important; color: #0f172a !important; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; }
-    :root { --bg:#f6f7fb; --panel:#ffffff; --text:#0f172a; --muted:#475569; --border:#e5e7eb; --accent:#16a34a; --warn:#f59e0b; --danger:#ef4444; }
-    * { box-sizing: border-box; }
-    header { position: sticky; top:0; z-index:10; backdrop-filter: blur(8px); background:#ffffffcc; border-bottom:1px solid var(--border); }
-    .wrap { max-width: 1100px; margin:0 auto; padding:16px; }
-    h1 { margin:0; font-size:20px; letter-spacing:.2px; font-weight:800; color:var(--text); }
-    main { padding-bottom:72px; }
-    .footer { position:fixed; left:0; right:0; bottom:0; background:#ffffff !important; border-top:1px solid var(--border); text-align:center; color:#0f172a !important; padding:14px 12px calc(14px + env(safe-area-inset-bottom)); font-size:13px; z-index:40; }
-    .footer b { font-weight:800; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Rotograma – Captura de Curvas e Acessos (PWA)</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+:root { color-scheme: light; }
+html, body { height: 100%; margin: 0; background: #f6f7fb !important; color: #0f172a !important; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; }
+:root { --bg:#f6f7fb; --panel:#ffffff; --text:#0f172a; --muted:#475569; --border:#e5e7eb; --accent:#16a34a; --warn:#f59e0b; --danger:#ef4444; }
+* { box-sizing: border-box; }
+
+header { position: sticky; top:0; z-index:10; backdrop-filter: blur(8px); background:#ffffffcc; border-bottom:1px solid var(--border); }
+.wrap { max-width: 1100px; margin:0 auto; padding:16px; }
+h1 { margin:0; font-size:20px; letter-spacing:.2px; font-weight:800; color:var(--text); }
+main { padding-bottom:72px; }
+
+.video-shell { position: relative; width: 100%; height: calc(100vw * 9 / 16); max-height: 360px; background: #000; overflow: hidden; border-radius: 12px; }
+video#camVideo { width: 100%; height: 100%; object-fit: cover; transform: rotate(0deg); }
+
+.controls { display:flex; gap:8px; flex-wrap: wrap; align-items:center; position: relative; z-index:50; background: rgba(255,255,255,0.9); padding:8px; border-radius:8px; margin-top:8px; }
+button { padding:8px 12px; border:none; border-radius:6px; cursor:pointer; font-weight:600; }
+button.primary { background:#16a34a; color:#fff; }
+button.warn { background:#f59e0b; color:#fff; }
+
+.events { margin-top:12px; display:flex; flex-wrap: wrap; gap:6px; }
+.events .event { display:flex; flex-direction:column; align-items:center; width:120px; }
+.events .event img.thumb { width:100%; border-radius:6px; }
+.events .event .meta { font-size:11px; text-align:center; margin-top:4px; }
+
+#map { width: 100%; height: 300px; border-radius: 12px; margin-bottom:8px; }
+
+.footer { position:fixed; left:0; right:0; bottom:0; background:#ffffff !important; border-top:1px solid var(--border); text-align:center; color:#0f172a !important; padding:14px 12px calc(14px + env(safe-area-inset-bottom)); font-size:13px; z-index:40; }
+.footer b { font-weight:800; }
+</style>
 </head>
 <body>
-<header><div class="wrap"><h1>Rotograma</h1></div></header>
+<header><div class="wrap"><h1>Rotograma – Captura de Curvas, Acessos & Gravação 720p (PWA)</h1></div></header>
 <main class="wrap">
   <div id="map"></div>
-  <div class="video-shell"><video id="camVideo" autoplay muted></video></div>
+  <div class="video-shell"><video id="camVideo" autoplay muted playsinline></video></div>
   <div class="controls">
     <button class="primary" id="startRecBtn">Iniciar Gravação</button>
     <button class="warn" id="stopRecBtn" disabled>Parar Gravação</button>
@@ -42,14 +58,27 @@
 let videoStream, mediaRecorder, recordedChunks = [], events = [];
 
 async function initCamera() {
-  videoStream = await navigator.mediaDevices.getUserMedia({ video: { width:1280, height:720 }, audio: true });
-  document.getElementById('camVideo').srcObject = videoStream;
+  try {
+    videoStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        facingMode: { exact: "environment" } // força câmera traseira
+      },
+      audio: true
+    });
+  } catch(e) {
+    // fallback se "environment" não disponível
+    videoStream = await navigator.mediaDevices.getUserMedia({ video: { width:1280, height:720 }, audio: true });
+  }
+  const videoEl = document.getElementById('camVideo');
+  videoEl.srcObject = videoStream;
 }
 
 function startRecording() {
   recordedChunks = [];
   mediaRecorder = new MediaRecorder(videoStream, { mimeType: 'video/webm; codecs=vp9' });
-  mediaRecorder.ondataavailable = e => { if(e.data.size > 0) recordedChunks.push(e.data); };
+  mediaRecorder.ondataavailable = e => { if(e.data.size>0) recordedChunks.push(e.data); };
   mediaRecorder.start();
   document.getElementById('startRecBtn').disabled = true;
   document.getElementById('stopRecBtn').disabled = false;
@@ -60,7 +89,7 @@ function stopRecording() {
   document.getElementById('startRecBtn').disabled = false;
   document.getElementById('stopRecBtn').disabled = true;
   mediaRecorder.onstop = () => {
-    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    const blob = new Blob(recordedChunks, { type:'video/webm' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -73,24 +102,25 @@ function stopRecording() {
 function captureEvent() {
   const video = document.getElementById('camVideo');
   const canvas = document.createElement('canvas');
-  canvas.width = 1280; canvas.height = 720;
-  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+  canvas.width = 1280;
+  canvas.height = 720;
+  canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
   const imgData = canvas.toDataURL('image/jpeg');
-  const event = { label: 'Curva/Acesso', image: imgData, timestamp: new Date().toLocaleTimeString() };
+  const event = { label:'Curva/Acesso', image: imgData, timestamp: new Date().toLocaleTimeString() };
   events.push(event);
 
   const div = document.createElement('div');
-  div.className = 'event';
-  div.innerHTML = `<img class='thumb' src='${imgData}' /><div class='meta'><b>${event.label}</b><br>${event.timestamp}</div>`;
+  div.className='event';
+  div.innerHTML=`<img class='thumb' src='${imgData}' /><div class='meta'><b>${event.label}</b><br>${event.timestamp}</div>`;
   document.getElementById('eventsContainer').appendChild(div);
 }
 
 function exportPDF() {
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ orientation: 'landscape' });
-  events.forEach((ev, i) => {
-    pdf.text(`Evento: ${ev.label}`, 10, 10 + i*70);
-    pdf.addImage(ev.image, 'JPEG', 10, 20 + i*70, 120, 67);
+  const pdf = new jsPDF({ orientation:'landscape' });
+  events.forEach((ev,i)=>{
+    pdf.text(`Evento: ${ev.label}`,10,10 + i*70);
+    pdf.addImage(ev.image,'JPEG',10,20 + i*70,120,67);
   });
   pdf.save('rotograma.pdf');
 }
@@ -102,11 +132,9 @@ document.getElementById('exportPdfBtn').onclick = exportPDF;
 
 initCamera();
 
-// Inicializa mapa Leaflet (exemplo simples)
+// Mapa Leaflet
 const map = L.map('map').setView([-23.55052, -46.633308], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19
-}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19 }).addTo(map);
 </script>
 </body>
 </html>
