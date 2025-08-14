@@ -25,6 +25,17 @@ async function initCamera() {
 
 // Initialize mini Leaflet map
 function initMap() {
+  // Try to center map on current position at start
+  if ('geolocation' in navigator) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      const { latitude, longitude } = pos.coords;
+      map.setView([latitude, longitude], 16);
+      if (!mapMarker) {
+        mapMarker = L.marker([latitude, longitude]).addTo(map);
+      }
+    });
+  }
+
   map = L.map('miniMap', { zoomControl: false, attributionControl: false }).setView([0,0], 2);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 }
@@ -98,7 +109,11 @@ async function capturePhotoWithMap() {
   // 4) draw the map snapshot into our main canvas
   ctx.drawImage(mapCanvas, 0, 0, mapCanvas.width, mapCanvas.height, x, y, insetW, insetH);
 
-  // 5) add watermark text
+  // 5) draw logo watermark
+  const logoImg = document.getElementById('logoWatermark');
+  ctx.drawImage(logoImg, (w - logoImg.width)/2, pad, logoImg.width, logoImg.height);
+
+  // 6) add watermark text
   ctx.fillStyle = 'rgba(255,255,255,.95)';
   ctx.font = `${Math.floor(w*0.02)}px sans-serif`;
   const ts = new Date().toLocaleString();
